@@ -1,161 +1,22 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Horario Semanal con Pomodoro</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-
-        h1 {
-            text-align: center;
-            color: #667eea;
-            margin-bottom: 30px;
-            font-size: 2.5em;
-        }
-
-        .timer-section {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        .timer-display {
-            font-size: 4em;
-            font-weight: bold;
-            margin: 20px 0;
-            font-family: 'Courier New', monospace;
-        }
-
-        .pomodoro-status {
-            font-size: 1.5em;
-            margin: 15px 0;
-            padding: 15px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 10px;
-        }
-
-        .schedule-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .schedule-table th {
-            background: #667eea;
-            color: white;
-            padding: 15px;
-            text-align: center;
-            font-size: 1.1em;
-        }
-
-        .schedule-table td {
-            padding: 15px;
-            text-align: center;
-            border: 2px solid #e0e0e0;
-            transition: all 0.3s ease;
-        }
-
-        .schedule-table tr:hover td {
-            background: #f5f5f5;
-        }
-
-        .current-slot {
-            background: #ffd54f !important;
-            font-weight: bold;
-            border: 3px solid #ffa000 !important;
-            animation: pulse 2s infinite;
-        }
-
-        .current-day {
-            background: #c5cae9 !important;
-        }
-
-        .java-backend {
-            background: #ffccbc;
-        }
-
-        .ia-model {
-            background: #b3e5fc;
-        }
-
-        .matematicas {
-            background: #c8e6c9;
-        }
-
-        .video-games {
-            background: #f8bbd0;
-        }
-
-        .descanso {
-            background: #ffe0b2;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.02);
-            }
-        }
-
-        .legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            justify-content: center;
-            margin-top: 20px;
-            padding: 20px;
-            background: #f5f5f5;
-            border-radius: 10px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .legend-color {
-            width: 30px;
-            height: 30px;
-            border-radius: 5px;
-            border: 2px solid #333;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="container">
         <h1>📅 Horario Semanal de Estudio</h1>
-        
+
         <div class="timer-section">
             <h2>⏱️ Temporizador de Sesión</h2>
             <div class="timer-display" id="timer">02:00:00</div>
             <div class="pomodoro-status" id="pomodoroStatus">Iniciando en 50 segundos...</div>
+            <div class="music-info" id="musicInfo">🎵 Música: Lista</div>
         </div>
 
         <table class="schedule-table">
@@ -233,103 +94,10 @@
         </div>
     </div>
 
-    <script>
-        let totalSeconds = 7200; // 2 horas
-        let pomodoroSeconds = 1500; // 25 minutos
-        let breakSeconds = 300; // 5 minutos
-        let currentPomodoroTime = pomodoroSeconds;
-        let isStudyTime = true;
-        let timerStarted = false;
+    <!-- Audio player (oculto) -->
+    <audio id="audioPlayer" preload="auto"></audio>
 
-        function getPeriod() {
-            const hour = new Date().getHours();
-            if (hour >= 6 && hour < 12) return 'morning';
-            if (hour >= 12 && hour < 18) return 'afternoon';
-            return 'night';
-        }
-
-        function highlightCurrentSchedule() {
-            const now = new Date();
-            const day = now.getDay();
-            const period = getPeriod();
-
-            document.querySelectorAll('td[data-day]').forEach(td => {
-                td.classList.remove('current-slot', 'current-day');
-            });
-
-            document.querySelectorAll(`td[data-day="${day}"]`).forEach(td => {
-                td.classList.add('current-day');
-            });
-
-            const currentSlot = document.querySelector(`td[data-day="${day}"][data-period="${period}"]`);
-            if (currentSlot) {
-                currentSlot.classList.add('current-slot');
-            }
-        }
-
-        function formatTime(seconds) {
-            const h = Math.floor(seconds / 3600);
-            const m = Math.floor((seconds % 3600) / 60);
-            const s = seconds % 60;
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-        }
-
-        function updateTimer() {
-            document.getElementById('timer').textContent = formatTime(totalSeconds);
-        }
-
-        function updatePomodoroStatus() {
-            const statusEl = document.getElementById('pomodoroStatus');
-            const pomodoroTime = formatTime(currentPomodoroTime).substring(3);
-            
-            if (isStudyTime) {
-                statusEl.innerHTML = `📚 <strong>TIEMPO DE ESTUDIO</strong><br>Pomodoro: ${pomodoroTime}`;
-                statusEl.style.background = 'rgba(76, 175, 80, 0.3)';
-            } else {
-                statusEl.innerHTML = `☕ <strong>TIEMPO DE DESCANSO</strong><br>Descanso: ${pomodoroTime}`;
-                statusEl.style.background = 'rgba(255, 152, 0, 0.3)';
-            }
-        }
-
-        function startTimer() {
-            timerStarted = true;
-            
-            setInterval(() => {
-                if (totalSeconds > 0) {
-                    totalSeconds--;
-                    updateTimer();
-                } else {
-                    totalSeconds = 7200;
-                    updateTimer();
-                }
-            }, 1000);
-
-            setInterval(() => {
-                if (currentPomodoroTime > 0) {
-                    currentPomodoroTime--;
-                    updatePomodoroStatus();
-                } else {
-                    if (isStudyTime) {
-                        isStudyTime = false;
-                        currentPomodoroTime = breakSeconds;
-                    } else {
-                        isStudyTime = true;
-                        currentPomodoroTime = pomodoroSeconds;
-                    }
-                    updatePomodoroStatus();
-                }
-            }, 1000);
-        }
-
-        highlightCurrentSchedule();
-        updateTimer();
-        updatePomodoroStatus();
-
-        setTimeout(() => {
-            startTimer();
-        }, 50000);
-
-        setInterval(highlightCurrentSchedule, 60000);
-    </script>
+    <script src="script.js"></script>
 </body>
+
 </html>
