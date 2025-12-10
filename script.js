@@ -146,7 +146,7 @@ function startTimer() {
 
     setInterval(() => {
         if (currentPomodoroTime > 0) {
-            currentPomodoroTime--;
+            currentPomodoroTime--; 
             updatePomodoroStatus();
         } else {
             if (isStudyTime) {
