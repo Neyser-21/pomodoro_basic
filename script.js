@@ -5,6 +5,13 @@ let currentPomodoroTime = pomodoroSeconds;
 let isStudyTime = true;
 let timerStarted = false;
 
+// Variables para calcular tiempo real
+let sessionStartTime = null;
+let pomodoroStartTime = null;
+let pomodoroPhaseStartTime = null;
+let accumulatedPomodoroTime = 0;
+
+// Configuración de música
 // Configuración de música
 const musicPlaylist = [
     'music/505_M4A_128K_.mp3',
@@ -15,13 +22,12 @@ const musicPlaylist = [
     'music/Ya-No-Hay-Verano-Depresión-Sonora_M4A_128K_.mp3',
     'music/Wind(MP3_160K).mp3'
 ];
-
 let currentTrackIndex = 0;
 const audioPlayer = document.getElementById('audioPlayer');
-let wasPlayingBeforePause = false;
 
 // Cargar la primera canción
 audioPlayer.src = musicPlaylist[currentTrackIndex];
+audioPlayer.volume = 0.7; // Volumen al 70%
 
 // Evento cuando termina una canción
 audioPlayer.addEventListener('ended', () => {
@@ -56,10 +62,28 @@ function updateMusicInfo() {
 }
 
 function playMusic() {
-    audioPlayer.play().catch(err => {
-        console.log('Error al reproducir música:', err);
-    });
-    updateMusicInfo();
+    // Intentar reproducir y manejar el error de autoplay
+    const playPromise = audioPlayer.play();
+    
+    if (playPromise !== undefined) {
+        playPromise
+            .then(() => {
+                console.log('Música iniciada correctamente');
+                updateMusicInfo();
+            })
+            .catch(err => {
+                console.log('Error al reproducir música (probablemente política de autoplay):', err);
+                // Mostrar mensaje al usuario
+                const musicInfo = document.getElementById('musicInfo');
+                musicInfo.innerHTML = `🔇 Haz clic aquí para activar música`;
+                musicInfo.style.cursor = 'pointer';
+                musicInfo.onclick = () => {
+                    audioPlayer.play();
+                    musicInfo.style.cursor = 'default';
+                    musicInfo.onclick = null;
+                };
+            });
+    }
 }
 
 function pauseMusic() {
@@ -101,7 +125,42 @@ function formatTime(seconds) {
 }
 
 function updateTimer() {
+    if (!sessionStartTime) return;
+    
+    // Calcular tiempo real transcurrido
+    const now = Date.now();
+    const elapsedSeconds = Math.floor((now - sessionStartTime) / 1000);
+    totalSeconds = Math.max(0, 7200 - elapsedSeconds);
+    
     document.getElementById('timer').textContent = formatTime(totalSeconds);
+    
+    // Si llegamos a 0, reiniciar
+    if (totalSeconds === 0) {
+        sessionStartTime = Date.now();
+    }
+}
+
+function updatePomodoroTimer() {
+    if (!pomodoroPhaseStartTime) return;
+    
+    const now = Date.now();
+    const elapsedInPhase = Math.floor((now - pomodoroPhaseStartTime) / 1000);
+    
+    if (isStudyTime) {
+        currentPomodoroTime = Math.max(0, pomodoroSeconds - elapsedInPhase);
+        
+        if (currentPomodoroTime === 0) {
+            switchToBreak();
+        }
+    } else {
+        currentPomodoroTime = Math.max(0, breakSeconds - elapsedInPhase);
+        
+        if (currentPomodoroTime === 0) {
+            switchToStudy();
+        }
+    }
+    
+    updatePomodoroStatus();
 }
 
 function updatePomodoroStatus() {
@@ -119,6 +178,7 @@ function updatePomodoroStatus() {
 
 function switchToBreak() {
     isStudyTime = false;
+    pomodoroPhaseStartTime = Date.now();
     currentPomodoroTime = breakSeconds;
     updatePomodoroStatus();
     playMusic(); // Iniciar música en el descanso
@@ -126,6 +186,7 @@ function switchToBreak() {
 
 function switchToStudy() {
     isStudyTime = true;
+    pomodoroPhaseStartTime = Date.now();
     currentPomodoroTime = pomodoroSeconds;
     updatePomodoroStatus();
     pauseMusic(); // Pausar música cuando vuelve al estudio
@@ -133,30 +194,26 @@ function switchToStudy() {
 
 function startTimer() {
     timerStarted = true;
+    sessionStartTime = Date.now();
+    pomodoroStartTime = Date.now();
+    pomodoroPhaseStartTime = Date.now();
     
+    // Actualizar cada 100ms para mayor precisión
     setInterval(() => {
-        if (totalSeconds > 0) {
-            totalSeconds--;
-            updateTimer();
-        } else {
-            totalSeconds = 7200;
-            updateTimer();
-        }
-    }, 1000);
-
-    setInterval(() => {
-        if (currentPomodoroTime > 0) {
-            currentPomodoroTime--; 
-            updatePomodoroStatus();
-        } else {
-            if (isStudyTime) {
-                switchToBreak();
-            } else {
-                switchToStudy();
-            }
-        }
-    }, 1000);
+        updateTimer();
+        updatePomodoroTimer();
+    }, 100);
 }
+
+// Manejar visibilidad de la página
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && timerStarted) {
+        // Cuando vuelve a estar visible, verificar si debe estar sonando música
+        if (!isStudyTime && audioPlayer.paused) {
+            playMusic();
+        }
+    }
+});
 
 // Inicializar
 highlightCurrentSchedule();
@@ -167,7 +224,8 @@ updateMusicInfo();
 // Iniciar temporizador después de 50 segundos
 setTimeout(() => {
     startTimer();
-}, 50000);
+    document.getElementById('pomodoroStatus').textContent = '⏱️ Temporizador iniciado';
+}, 30000);
 
 // Actualizar el resaltado cada minuto
 setInterval(highlightCurrentSchedule, 60000);
